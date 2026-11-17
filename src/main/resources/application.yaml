@@ -1,0 +1,13 @@
+
+spring:
+  application:
+    name: auth-lab
+
+server:
+  port: 18080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
