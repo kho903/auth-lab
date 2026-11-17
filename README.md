@@ -4,21 +4,21 @@ Spring Boot 기반의 **인증(Authentication)·인가(Authorization)·멀티테
 
 일반 이메일 로그인과 Google OAuth2/OIDC를 하나의 사용자 계정에 연결하고, JWT·Redis를 이용한 로그인 세션 관리 및 여러 조직에 소속된 사용자의 권한 분리를 단계적으로 구현하는 것이 목표입니다.
 
-> **현재 단계:** 개발 환경 구성 완료 (STEP 6-2). **Mode A와 Mode B 모두 실행 및 연결 확인 완료.** 회원가입·JWT·Google 로그인·테넌트 업무 기능은 아직 구현 전입니다.
+> **현재 단계:** **STEP 6-3 완료.** IntelliJ(Mode A)와 전체 Docker(Mode B) 실행을 확인했고, Flyway V1~V3 마이그레이션으로 **업무 테이블 9개 생성 및 정상 동작을 검증**했습니다. 회원가입·JWT·Google 로그인·테넌트/지점 기능은 아직 구현 전입니다.
 
 ## 1. 기술 스택
 
-| 분류              | 기술                                                        |
-|-----------------|-----------------------------------------------------------|
-| Language        | Java 25 (Eclipse Temurin)                                 |
-| Framework       | Spring Boot 4.1.2                                         |
-| Build           | Gradle (Groovy DSL)                                       |
-| Web / Security  | Spring Web MVC, Spring Security                           |
-| Persistence     | Spring Data JPA, MySQL 8.4                                |
-| In-memory Store | Redis 8                                                   |
-| Infrastructure  | Docker, Docker Compose                                    |
-| Development     | IntelliJ IDEA, Git, GitHub                                |
-| 예정              | Flyway, JWT (Resource Server), Google OAuth2/OIDC, 통합 테스트 |
+| 분류                      | 기술                                                            |
+|-------------------------|---------------------------------------------------------------|
+| Language                | Java 25 (Eclipse Temurin)                                     |
+| Framework               | Spring Boot 4.1.2                                             |
+| Build                   | Gradle (Groovy DSL)                                           |
+| Web / Security          | Spring Web MVC, Spring Security                               |
+| Persistence / Migration | Spring Data JPA, MySQL 8.4, Flyway                            |
+| In-memory Store         | Redis 8                                                       |
+| Infrastructure          | Docker, Docker Compose                                        |
+| Development             | IntelliJ IDEA, Git, GitHub                                    |
+| 구현 예정                   | JWT (Resource Server), Google OAuth2/OIDC, 인증·테넌트 API, 통합 테스트 |
 
 ## 2. 프로젝트 목표
 
@@ -35,7 +35,7 @@ Spring Boot 기반의 **인증(Authentication)·인가(Authorization)·멀티테
 
 **DB 방식:** Shared Database + Shared Schema. `users`와 테넌트 소속을 분리하며, 테넌트 소유 데이터는 `tenant_id`로 구분할 예정입니다.
 
-> `branches` 및 `branch_memberships`는 **DB 설계에만 반영**했습니다. 지점 관련 테이블 생성·Entity·API 및 지점별 역할은 이후 단계에서 구현할 계획입니다.
+> `branches` 및 `branch_memberships`는 **Flyway V3로 실제 DB 테이블까지 생성**했습니다. 다만 지점 관련 JPA Entity·Repository·Service·Controller·API·권한 기능은 이후 단계에서 구현합니다.
 
 ## 3. 개발 환경 구성
 
@@ -104,14 +104,15 @@ openssl rand -hex 24
 
 ### 4-2. 설정 파일 역할
 
-| 파일                       | 역할                                          |
-|--------------------------|---------------------------------------------|
-| `application.yml`        | 공통 애플리케이션 설정, 기본 Profile `local`            |
-| `application-local.yml`  | IntelliJ 실행 시 호스트 포트 사용, 프로젝트 루트 `.env` 읽기  |
-| `application-docker.yml` | Docker 서비스 이름(`mysql`, `redis`)으로 접속        |
-| `compose.yaml`           | MySQL·Redis·backend 서비스 및 `full` Profile 정의 |
-| `Dockerfile`             | JDK 25 빌드 / JRE 25 실행의 멀티스테이지 이미지           |
-| `.dockerignore`          | 이미지 빌드 시 불필요한 파일과 비밀정보 제외                   |
+| 파일                                 | 역할                                                             |
+|------------------------------------|----------------------------------------------------------------|
+| `application.yml`                  | 공통 설정, 기본 Profile `local`, Flyway 활성화, JPA `ddl-auto=validate` |
+| `application-local.yml`            | IntelliJ 실행 시 호스트 포트 사용, 프로젝트 루트 `.env` 읽기                     |
+| `application-docker.yml`           | Docker 서비스 이름(`mysql`, `redis`)으로 접속                           |
+| `compose.yaml`                     | MySQL·Redis·backend 서비스 및 `full` Profile 정의                    |
+| `Dockerfile`                       | JDK 25 빌드 / JRE 25 실행의 멀티스테이지 이미지                              |
+| `.dockerignore`                    | 이미지 빌드 시 불필요한 파일과 비밀정보 제외                                      |
+| `src/main/resources/db/migration/` | Flyway 버전별 SQL (`V1`, `V2`, `V3`)                              |
 
 ## 5. Mode A — IntelliJ에서 Spring Boot 실행
 
@@ -215,32 +216,97 @@ docker compose --profile full down
 
 `docker compose down -v`는 MySQL·Redis 데이터 볼륨까지 삭제하므로 주의합니다.
 
-## 8. 진행 현황
+## 8. 데이터베이스 및 Flyway 마이그레이션
 
-| 단계       | 내용                                                      | 상태           |
-|----------|---------------------------------------------------------|--------------|
-| STEP 1   | 요구사항 및 인증·테넌트 정책 설계                                     | 설계 초안 완료     |
-| STEP 2   | ERD 및 DB 테이블 설계                                         | 설계 초안 완료     |
-| STEP 3   | Spring Security·JWT·Google OIDC 아키텍처 설계                 | 설계 초안 완료     |
-| STEP 4   | REST API 설계                                             | 설계 초안 완료     |
-| STEP 5   | 전체 설계 검토 및 보완                                           | 검토 완료        |
-| STEP 6-1 | Spring Boot 프로젝트 생성·초기 실행·GitHub 저장소 생성                 | 완료           |
-| STEP 6-2 | Mode A: IntelliJ + Docker MySQL/Redis                   | **실행 확인 완료** |
-| STEP 6-2 | Mode B: Spring Boot + MySQL + Redis 전체 Docker           | **실행 확인 완료** |
-| STEP 6-3 | Flyway 마이그레이션 및 DB 7개 핵심 테이블 생성                         | 예정           |
-| 이후       | JPA Entity, 일반 회원 인증, JWT/Redis, Google OIDC, 멀티테넌트 API | 예정           |
+DB는 **Shared Database + Shared Schema** 방식이며, Flyway가 스키마 변경을 관리합니다. Hibernate의 `ddl-auto`는 `validate`로 설정해 Entity 매핑을 검증하도록 준비했습니다. **JPA Entity는 아직 구현 전**이므로 현재 단계에서 `validate`가 9개 테이블 전체를 검사하는 것은 아닙니다.
+
+### 8-1. 마이그레이션 구성
+
+```text
+src/main/resources/db/migration/
+├── V1__create_auth_tables.sql
+├── V2__create_tenant_tables.sql
+└── V3__create_branch_tables.sql
+```
+
+| Flyway 버전 | 테이블                                                           | 내용                        | 상태                                 |
+| ----------- | ---------------------------------------------------------------- | --------------------------- | ------------------------------------ |
+| V1          | `users`, `local_credentials`, `oauth_accounts`                   | 회원 및 인증 정보           | 적용 완료                            |
+| V2          | `tenants`, `tenant_memberships`, `tenant_invitations`, `notices` | 조직, 소속/역할, 초대, 공지 | 적용 완료                            |
+| V3          | `branches`, `branch_memberships`                                 | 조직별 지점 및 지점 배정    | **테이블 생성 완료, 기능 구현 보류** |
+
+총 **업무 테이블 9개**에 Flyway 관리 테이블 `flyway_schema_history`를 더해 **10개 테이블**이 생성되었습니다.
+
+### 8-2. 마이그레이션 실행 방법
+
+Spring Boot를 시작하면 미적용 SQL 마이그레이션이 자동 실행됩니다. 두 실행 모드 모두 **동일한 MySQL 데이터 볼륨**을 사용하므로 한 모드에서 적용한 마이그레이션은 다른 모드에서 중복 실행되지 않습니다.
+
+**Mode A (IntelliJ):**
+
+```bash
+docker compose up -d mysql redis
+```
+
+그다음 IntelliJ에서 `AuthLab - Local`을 Run/Debug로 실행합니다.
+
+**Mode B (전체 Docker):**
+
+IntelliJ의 Spring Boot를 종료하고 다음 명령어를 실행합니다.
+
+```bash
+docker compose --profile full up -d --build
+```
+
+### 8-3. DB 및 Flyway 실행 이력 확인
+
+```bash
+docker compose exec mysql mysql -u auth_user -p auth_lab
+```
+
+MySQL 콘솔에서:
+
+```sql
+SHOW TABLES;
+
+SELECT version, description, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+V1·V2·V3의 `success`가 모두 `1`이면 정상 적용된 상태입니다. Mode A와 Mode B에서 실행 및 테이블 생성을 확인했습니다.
+
+**마이그레이션 관리 원칙:** 이미 적용된 V1~V3 SQL은 임의로 수정하지 않고, 이후 스키마 변경 시 **새로운 버전(`V4__...sql` 등)** 을 추가합니다. `docker compose down -v`는 DB·Redis 볼륨을 삭제하므로 사용에 주의합니다.
+
+---
+
+## 9. 진행 현황
+
+| 단계       | 내용                                                              | 상태                   |
+|----------|-----------------------------------------------------------------|----------------------|
+| STEP 1   | 요구사항 및 인증·테넌트 정책 설계                                             | 설계 초안 완료             |
+| STEP 2   | ERD 및 DB 테이블 설계                                                 | 설계 초안 완료             |
+| STEP 3   | Spring Security·JWT·Google OIDC 아키텍처 설계                         | 설계 초안 완료             |
+| STEP 4   | REST API 설계                                                     | 설계 초안 완료             |
+| STEP 5   | 전체 설계 검토 및 보완                                                   | 검토 완료                |
+| STEP 6-1 | Spring Boot 프로젝트 생성·초기 실행·GitHub 저장소 생성                         | 완료                   |
+| STEP 6-2 | Mode A: IntelliJ + Docker MySQL/Redis                           | **실행 확인 완료**         |
+| STEP 6-2 | Mode B: Spring Boot + MySQL + Redis 전체 Docker                   | **실행 확인 완료**         |
+| STEP 6-3 | Flyway V1·V2·V3 및 업무 테이블 9개 생성·검증                               | **완료 (Mode A/B 검증)** |
+| STEP 6-4 | 회원 인증 JPA Entity 매핑 (`User`, `LocalCredential`, `OAuthAccount`) | **다음 단계**            |
+| 이후       | 일반 회원 인증, JWT/Redis, Google OIDC, 멀티테넌트 API                     | 예정                   |
 
 ### 다음 작업
 
-1. Flyway 마이그레이션 도입 및 인증 테이블 생성
-2. 테넌트·소속·초대·공지 테이블 생성
-3. JPA Entity 매핑 및 스키마 검증
-4. 일반 회원가입과 이메일 인증부터 기능별로 개발
-5. JWT + Redis → Google OIDC → 멀티테넌트 순서로 구현 및 테스트
+1. 인증 도메인 JPA Entity 및 Repository 작성
+2. Hibernate `ddl-auto=validate`로 Entity/DB 매핑 검증
+3. Spring Security 기반 일반 회원가입·이메일 인증 구현
+4. 공통 JWT TokenService 및 Redis Refresh Token 관리 구현
+5. Google OIDC 로그인·수동 계정 연동 구현
+6. 테넌트 회원·초대·공지 API 및 데이터 격리 테스트
 
-지점(`branches`, `branch_memberships`)은 현재 **설계만 완료한 확장 범위**이며 위 구현 단계에는 포함하지 않습니다.
+지점(`branches`, `branch_memberships`)은 **DB 테이블 생성까지 완료한 확장 범위**입니다. 지점 관련 Entity·비즈니스 로직·API는 이후에 구현합니다.
 
-## 9. 개발 및 Git 규칙
+## 10. 개발 및 Git 규칙
 
 - 개인 학습용 Repository로, 당분간 별도 Issue·기능 브랜치·Pull Request 없이 **`main`에 직접 커밋 및 Push**합니다.
 - 변경 내용은 가능한 한 기능·설정 단위로 커밋합니다.
@@ -251,7 +317,7 @@ docker compose --profile full down
 git status
 git add .
 git diff --cached --stat
-git commit -m "docs: document development environment and progress"
+git commit -m "docs: update README with Flyway migrations and schema status"
 git push
 ```
 
