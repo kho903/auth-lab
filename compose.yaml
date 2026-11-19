@@ -90,12 +90,24 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
 
       TZ: UTC
+      EMAIL_CODE_HMAC_KEY: ${EMAIL_CODE_HMAC_KEY:?required}
 
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:28025:8025"
+      - "127.0.0.1:21025:1025"
+
 
 volumes:
   mysql_data:

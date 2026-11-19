@@ -30,6 +30,15 @@ spring:
       password: ${REDIS_PASSWORD}
       timeout: 3s
 
+  mail:
+    from: no-reply@auth-lab.test
+    properties:
+      "[mail.smtp.auth]": false
+      "[mail.smtp.starttls.enable]": false
+      "[mail.smtp.connectiontimeout]": 3000
+      "[mail.smtp.timeout]": 3000
+      "[mail.smtp.writetimeout]": 3000
+
 server:
   port: 18080
 
@@ -41,3 +50,11 @@ management:
   endpoint:
     health:
       show-components: always
+
+
+app:
+  mail:
+    from: no-reply@auth-lab.test
+
+  email-verification:
+    hmac-secret: ${EMAIL_CODE_HMAC_KEY}
